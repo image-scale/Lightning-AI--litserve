@@ -16,7 +16,7 @@ from typing import Any, Literal, Optional, Union
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from aiserver.api import InferenceAPI
 
@@ -67,7 +67,9 @@ def _inference_loop(
         worker_status[worker_id] = WorkerStatus.ERROR
         return
 
-    if api.max_batch_size > 1:
+    if api.stream:
+        _streaming_inference_loop(api, worker_id, request_queue, response_queue, request_timeout)
+    elif api.max_batch_size > 1:
         _batched_inference_loop(api, worker_id, request_queue, response_queue, request_timeout)
     else:
         _single_inference_loop(api, worker_id, request_queue, response_queue, request_timeout)
@@ -213,6 +215,57 @@ def _batched_inference_loop(
                 response_queue.put((uid, (pickle.dumps(e), APIStatus.ERROR)))
 
 
+def _streaming_inference_loop(
+    api: InferenceAPI,
+    worker_id: int,
+    request_queue: Queue,
+    response_queue: Queue,
+    request_timeout: float,
+):
+    """Streaming inference loop that yields responses incrementally."""
+    while True:
+        try:
+            request_data = request_queue.get(timeout=1.0)
+            if request_data is None:
+                logger.debug(f"Worker {worker_id} received shutdown signal")
+                return
+
+            uid, timestamp, payload = request_data
+        except Empty:
+            continue
+        except Exception:
+            continue
+
+        if request_timeout and request_timeout > 0:
+            elapsed = time.monotonic() - timestamp
+            if elapsed > request_timeout:
+                logger.warning(f"Request {uid} timed out after {elapsed:.2f}s")
+                response_queue.put((uid, (HTTPException(504, "Request timed out"), APIStatus.ERROR)))
+                continue
+
+        try:
+            x = api.decode_request(payload)
+            output_stream = api.predict(x)
+
+            for output in output_stream:
+                y_enc = api.encode_response(output)
+                if hasattr(y_enc, '__iter__') and hasattr(y_enc, '__next__'):
+                    for chunk in y_enc:
+                        formatted = api.format_encoded_response(chunk)
+                        response_queue.put((uid, (formatted, APIStatus.OK)))
+                else:
+                    formatted = api.format_encoded_response(y_enc)
+                    response_queue.put((uid, (formatted, APIStatus.OK)))
+
+            response_queue.put((uid, (None, APIStatus.FINISH_STREAMING)))
+
+        except HTTPException as e:
+            response_queue.put((uid, (e, APIStatus.ERROR)))
+        except Exception as e:
+            logger.exception(f"Error processing streaming request {uid}: {e}")
+            response_queue.put((uid, (pickle.dumps(e), APIStatus.ERROR)))
+
+
 async def _response_consumer(
     response_queue: Queue,
     response_buffer: dict,
@@ -226,8 +279,13 @@ async def _response_consumer(
                 break
             uid, (response, status) = result
             if uid in response_buffer:
-                response_buffer[uid].response = (response, status)
-                response_buffer[uid].event.set()
+                item = response_buffer[uid]
+                if item.response_queue is not None:
+                    item.response_queue.append((response, status))
+                    item.event.set()
+                else:
+                    item.response = (response, status)
+                    item.event.set()
         except Empty:
             continue
         except asyncio.CancelledError:
@@ -376,6 +434,7 @@ class InferenceServer:
                     "api_path": self.api.api_path,
                     "max_batch_size": self.api.max_batch_size,
                     "batch_timeout": self.api.batch_timeout,
+                    "stream": self.api.stream,
                 }
             })
 
@@ -388,8 +447,31 @@ class InferenceServer:
 
             uid = str(uuid.uuid4())
             event = asyncio.Event()
-            self.response_buffer[uid] = ResponseItem(event=event)
 
+            if self.api.stream:
+                response_queue = deque()
+                self.response_buffer[uid] = ResponseItem(event=event, response_queue=response_queue)
+                self._request_queue.put((uid, time.monotonic(), payload))
+
+                async def generate():
+                    try:
+                        while True:
+                            await event.wait()
+                            while response_queue:
+                                data, status = response_queue.popleft()
+                                if status == APIStatus.FINISH_STREAMING:
+                                    return
+                                if status == APIStatus.ERROR:
+                                    return
+                                if data is not None:
+                                    yield data
+                            event.clear()
+                    finally:
+                        self.response_buffer.pop(uid, None)
+
+                return StreamingResponse(generate())
+
+            self.response_buffer[uid] = ResponseItem(event=event)
             self._request_queue.put((uid, time.monotonic(), payload))
 
             try:

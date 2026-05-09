@@ -34,14 +34,26 @@
 - [x] Server validates api_path and other configuration at startup
 - [x] Server handles request timeouts and returns 504 when exceeded
 
-## Task 3: Request Batching
+## Task 3: Request Batching (COMPLETE)
 
 ### Acceptance Criteria
-- [ ] When max_batch_size > 1, workers collect multiple requests before processing
-- [ ] batch_timeout controls how long to wait for more requests before processing partial batch
-- [ ] Batch of requests decoded individually then combined via batch() method
-- [ ] Prediction runs once on batched input
-- [ ] Results split via unbatch() and sent to respective clients
-- [ ] If batch_timeout is 0, batch processes immediately with whatever requests are available
-- [ ] Timed out requests in batch are individually marked as 504 errors
-- [ ] Batching works correctly with different batch sizes (2, 4, 8)
+- [x] When max_batch_size > 1, workers collect multiple requests before processing
+- [x] batch_timeout controls how long to wait for more requests before processing partial batch
+- [x] Batch of requests decoded individually then combined via batch() method
+- [x] Prediction runs once on batched input
+- [x] Results split via unbatch() and sent to respective clients
+- [x] If batch_timeout is 0, batch processes immediately with whatever requests are available
+- [x] Timed out requests in batch are individually marked as 504 errors
+- [x] Batching works correctly with different batch sizes (2, 4, 8)
+
+## Task 4: Streaming Response Support
+
+### Acceptance Criteria
+- [ ] When stream=True, predict() can be a generator that yields values
+- [ ] encode_response() can also be a generator yielding encoded chunks
+- [ ] Server returns StreamingResponse instead of regular JSON response
+- [ ] Each yielded value is sent to client as it becomes available
+- [ ] Client receives data incrementally without waiting for full response
+- [ ] Streaming works with the /info endpoint reporting stream status
+- [ ] Non-streaming APIs continue to work normally
+- [ ] API validates that predict/encode_response are generators when stream=True

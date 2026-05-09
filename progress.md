@@ -13,3 +13,10 @@
 **Commit**: Add an inference server that hosts the InferenceAPI as a FastAPI application
 **Acceptance**: 12/12 criteria met
 **Verification**: tests FAIL on previous state (ImportError: InferenceServer), PASS on current state
+
+## Round 3
+**Task**: Task 3 — Request Batching
+**Files created**: tests/test_batching.py (updated server.py)
+**Commit**: Add request batching support to the inference server
+**Acceptance**: 8/8 criteria met
+**Verification**: tests FAIL on previous state (KeyError: max_batch_size), PASS on current state
