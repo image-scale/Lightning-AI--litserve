@@ -18,18 +18,30 @@
 - [x] API has device property that can be get/set
 - [x] format_encoded_response() formats dict as JSON string with newline, Pydantic model as JSON, others unchanged
 
-## Task 2: Inference Server
+## Task 2: Inference Server (COMPLETE)
 
 ### Acceptance Criteria
-- [ ] Server can be initialized with an InferenceAPI instance
-- [ ] Server accepts accelerator parameter ("cpu", "cuda", "auto") and devices parameter (int or "auto")
-- [ ] Server accepts timeout parameter for request timeout (default 30 seconds)
-- [ ] Server accepts workers_per_device parameter (default 1) for parallel workers
-- [ ] Server has run() method that starts the server on a specified host and port
-- [ ] Server creates /health endpoint returning 200 when workers are ready, 503 otherwise
-- [ ] Server creates /info endpoint returning server configuration as JSON
-- [ ] Server creates dynamic prediction endpoint based on API's api_path
-- [ ] POST to prediction endpoint returns the inference result from the API
-- [ ] Server spawns worker processes that call API's setup and process requests
-- [ ] Server validates api_path and other configuration at startup
-- [ ] Server handles request timeouts and returns 504 when exceeded
+- [x] Server can be initialized with an InferenceAPI instance
+- [x] Server accepts accelerator parameter ("cpu", "cuda", "auto") and devices parameter (int or "auto")
+- [x] Server accepts timeout parameter for request timeout (default 30 seconds)
+- [x] Server accepts workers_per_device parameter (default 1) for parallel workers
+- [x] Server has run() method that starts the server on a specified host and port
+- [x] Server creates /health endpoint returning 200 when workers are ready, 503 otherwise
+- [x] Server creates /info endpoint returning server configuration as JSON
+- [x] Server creates dynamic prediction endpoint based on API's api_path
+- [x] POST to prediction endpoint returns the inference result from the API
+- [x] Server spawns worker processes that call API's setup and process requests
+- [x] Server validates api_path and other configuration at startup
+- [x] Server handles request timeouts and returns 504 when exceeded
+
+## Task 3: Request Batching
+
+### Acceptance Criteria
+- [ ] When max_batch_size > 1, workers collect multiple requests before processing
+- [ ] batch_timeout controls how long to wait for more requests before processing partial batch
+- [ ] Batch of requests decoded individually then combined via batch() method
+- [ ] Prediction runs once on batched input
+- [ ] Results split via unbatch() and sent to respective clients
+- [ ] If batch_timeout is 0, batch processes immediately with whatever requests are available
+- [ ] Timed out requests in batch are individually marked as 504 errors
+- [ ] Batching works correctly with different batch sizes (2, 4, 8)

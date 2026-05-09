@@ -67,6 +67,20 @@ def _inference_loop(
         worker_status[worker_id] = WorkerStatus.ERROR
         return
 
+    if api.max_batch_size > 1:
+        _batched_inference_loop(api, worker_id, request_queue, response_queue, request_timeout)
+    else:
+        _single_inference_loop(api, worker_id, request_queue, response_queue, request_timeout)
+
+
+def _single_inference_loop(
+    api: InferenceAPI,
+    worker_id: int,
+    request_queue: Queue,
+    response_queue: Queue,
+    request_timeout: float,
+):
+    """Single request inference loop."""
     while True:
         try:
             request_data = request_queue.get(timeout=1.0)
@@ -97,6 +111,106 @@ def _inference_loop(
         except Exception as e:
             logger.exception(f"Error processing request {uid}: {e}")
             response_queue.put((uid, (pickle.dumps(e), APIStatus.ERROR)))
+
+
+def _collect_batch(
+    api: InferenceAPI,
+    request_queue: Queue,
+    request_timeout: float,
+) -> tuple[list, list]:
+    """Collect a batch of requests from the queue.
+
+    Returns:
+        Tuple of (valid_requests, timed_out_uids) where valid_requests is a list
+        of (uid, payload) tuples and timed_out_uids is a list of (uid,) tuples.
+    """
+    batch = []
+    timed_out = []
+    start_time = time.monotonic()
+    end_time = start_time + api.batch_timeout
+
+    while len(batch) < api.max_batch_size:
+        remaining_time = end_time - time.monotonic() if api.batch_timeout > 0 else 0
+
+        if api.batch_timeout > 0 and remaining_time <= 0 and len(batch) > 0:
+            break
+
+        try:
+            timeout = min(remaining_time, 0.01) if api.batch_timeout > 0 else 0.01
+            request_data = request_queue.get(timeout=timeout)
+
+            if request_data is None:
+                return None, None
+
+            uid, timestamp, payload = request_data
+
+            if request_timeout and request_timeout > 0:
+                if time.monotonic() - timestamp > request_timeout:
+                    timed_out.append(uid)
+                    continue
+
+            batch.append((uid, payload))
+
+        except Empty:
+            if api.batch_timeout == 0 and len(batch) > 0:
+                break
+            if api.batch_timeout > 0 and time.monotonic() >= end_time:
+                break
+            continue
+
+    return batch, timed_out
+
+
+def _batched_inference_loop(
+    api: InferenceAPI,
+    worker_id: int,
+    request_queue: Queue,
+    response_queue: Queue,
+    request_timeout: float,
+):
+    """Batched inference loop that processes multiple requests together."""
+    while True:
+        batch, timed_out = _collect_batch(api, request_queue, request_timeout)
+
+        if batch is None:
+            logger.debug(f"Worker {worker_id} received shutdown signal")
+            return
+
+        for uid in timed_out:
+            logger.warning(f"Request {uid} timed out in batch collection")
+            response_queue.put((uid, (HTTPException(504, "Request timed out"), APIStatus.ERROR)))
+
+        if not batch:
+            continue
+
+        uids = [item[0] for item in batch]
+        payloads = [item[1] for item in batch]
+
+        try:
+            decoded = [api.decode_request(p) for p in payloads]
+            batched_input = api.batch(decoded)
+            batched_output = api.predict(batched_input)
+            unbatched = api.unbatch(batched_output)
+
+            if len(unbatched) != len(uids):
+                logger.error(
+                    f"Batch size mismatch: got {len(unbatched)} outputs for {len(uids)} inputs"
+                )
+                for uid in uids:
+                    response_queue.put((uid, (HTTPException(500, "Batch size mismatch"), APIStatus.ERROR)))
+                continue
+
+            for uid, output in zip(uids, unbatched):
+                y_enc = api.encode_response(output)
+                response_queue.put((uid, (y_enc, APIStatus.OK)))
+
+        except HTTPException as e:
+            for uid in uids:
+                response_queue.put((uid, (e, APIStatus.ERROR)))
+        except Exception as e:
+            logger.exception(f"Error processing batch: {e}")
+            for uid in uids:
+                response_queue.put((uid, (pickle.dumps(e), APIStatus.ERROR)))
 
 
 async def _response_consumer(
@@ -260,6 +374,8 @@ class InferenceServer:
                     "workers_per_device": self.workers_per_device,
                     "timeout": self.timeout,
                     "api_path": self.api.api_path,
+                    "max_batch_size": self.api.max_batch_size,
+                    "batch_timeout": self.api.batch_timeout,
                 }
             })
 
