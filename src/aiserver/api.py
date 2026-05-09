@@ -27,6 +27,7 @@ class InferenceAPI(ABC):
 
     _stream: bool = False
     _device: Optional[str] = None
+    _callback_runner: Optional[Any] = None
     request_timeout: Optional[float] = None
 
     def __init__(
@@ -236,3 +237,30 @@ class InferenceAPI(ABC):
     @api_path.setter
     def api_path(self, value: str) -> None:
         self._api_path = value
+
+    def set_callback_runner(self, runner) -> None:
+        """Set the callback runner for this API.
+
+        Args:
+            runner: A CallbackRunner instance to use for callbacks.
+        """
+        self._callback_runner = runner
+
+    def predict_with_callbacks(self, x: Any, **kwargs) -> Any:
+        """Run predict with callbacks triggered before and after.
+
+        Args:
+            x: Input data (output from decode_request or batch)
+
+        Returns:
+            Model prediction output
+        """
+        if self._callback_runner:
+            self._callback_runner.trigger_event("on_before_predict", x)
+
+        result = self.predict(x, **kwargs)
+
+        if self._callback_runner:
+            self._callback_runner.trigger_event("on_after_predict", result)
+
+        return result

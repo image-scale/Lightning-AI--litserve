@@ -19,6 +19,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from aiserver.api import InferenceAPI
+from aiserver.callbacks import Callback, CallbackRunner
 from aiserver.devices import detect_accelerator, detect_device_count, get_device_identifiers
 
 logger = logging.getLogger(__name__)
@@ -312,6 +313,7 @@ class InferenceServer:
         workers_per_device: int = 1,
         timeout: Union[float, bool] = 30,
         model_metadata: Optional[dict] = None,
+        callbacks: Union[Callback, list[Callback], None] = None,
     ):
         """Initialize the inference server.
 
@@ -322,6 +324,7 @@ class InferenceServer:
             workers_per_device: Number of worker processes per device
             timeout: Request timeout in seconds, or False to disable
             model_metadata: Optional metadata about the model
+            callbacks: Callback or list of callbacks for lifecycle events
         """
         if workers_per_device < 1:
             raise ValueError("workers_per_device must be >= 1")
@@ -334,6 +337,7 @@ class InferenceServer:
         self.workers_per_device = workers_per_device
         self.timeout = timeout if timeout is not False else -1
         self.model_metadata = model_metadata
+        self._callback_runner = CallbackRunner(callbacks)
 
         if timeout not in (False, -1):
             api.request_timeout = timeout

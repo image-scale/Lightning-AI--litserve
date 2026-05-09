@@ -34,3 +34,10 @@
 **Commit**: Add device/accelerator detection module
 **Acceptance**: 10/10 criteria met
 **Verification**: tests FAIL on previous state (ImportError: aiserver.devices), PASS on current state
+
+## Round 6
+**Task**: Task 6 — Callback System
+**Files created**: src/aiserver/callbacks.py, tests/test_callbacks.py (updated server.py, api.py)
+**Commit**: Add callback system for server lifecycle events
+**Acceptance**: 10/10 criteria met
+**Verification**: tests FAIL on previous state (ImportError: aiserver.callbacks), PASS on current state

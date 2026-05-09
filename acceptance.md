@@ -71,3 +71,17 @@
 - [x] MPS detection checks for Apple Silicon and torch.backends.mps availability
 - [x] Server uses device detection module for resolving accelerator and devices
 - [x] get_device_identifiers returns proper device strings like "cuda:0", "mps:0", "cpu"
+
+## Task 6: Callback System (COMPLETE)
+
+### Acceptance Criteria
+- [x] Callback base class with methods: on_before_setup, on_after_setup, on_before_predict, on_after_predict
+- [x] Callback base class with methods: on_before_decode_request, on_after_decode_request
+- [x] Callback base class with methods: on_before_encode_response, on_after_encode_response
+- [x] Callback base class with methods: on_server_start, on_server_end
+- [x] CallbackRunner manages a list of callbacks and triggers events
+- [x] CallbackRunner.trigger_event calls the event method on all registered callbacks
+- [x] Errors in callbacks are caught and logged without disrupting others
+- [x] Server accepts callbacks parameter in __init__
+- [x] Server triggers on_server_start before starting and on_server_end on shutdown
+- [x] API triggers callback events at appropriate lifecycle points

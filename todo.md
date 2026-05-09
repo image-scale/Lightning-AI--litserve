@@ -9,4 +9,4 @@ Implement the serving library in dependency order: Start with the core API class
 - [x] Task 3: Add request batching with configurable batch size and timeout, allowing multiple requests to be processed together for better throughput (src/batching.py + tests/test_batching.py)
 - [x] Task 4: Add streaming response support so inference APIs can yield output incrementally for real-time use cases like LLM token generation (src/streaming.py + tests/test_streaming.py)
 - [x] Task 5: Add device/accelerator detection to automatically discover and configure CPU, CUDA GPUs, or Apple MPS devices (src/devices.py + tests/test_devices.py)
-- [>] Task 6: Add callback system for server lifecycle events like before/after setup, before/after predict, and server start/stop (src/callbacks.py + tests/test_callbacks.py)
+- [x] Task 6: Add callback system for server lifecycle events like before/after setup, before/after predict, and server start/stop (src/callbacks.py + tests/test_callbacks.py)
