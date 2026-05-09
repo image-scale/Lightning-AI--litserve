@@ -46,14 +46,28 @@
 - [x] Timed out requests in batch are individually marked as 504 errors
 - [x] Batching works correctly with different batch sizes (2, 4, 8)
 
-## Task 4: Streaming Response Support
+## Task 4: Streaming Response Support (COMPLETE)
 
 ### Acceptance Criteria
-- [ ] When stream=True, predict() can be a generator that yields values
-- [ ] encode_response() can also be a generator yielding encoded chunks
-- [ ] Server returns StreamingResponse instead of regular JSON response
-- [ ] Each yielded value is sent to client as it becomes available
-- [ ] Client receives data incrementally without waiting for full response
-- [ ] Streaming works with the /info endpoint reporting stream status
-- [ ] Non-streaming APIs continue to work normally
-- [ ] API validates that predict/encode_response are generators when stream=True
+- [x] When stream=True, predict() can be a generator that yields values
+- [x] encode_response() can also be a generator yielding encoded chunks
+- [x] Server returns StreamingResponse instead of regular JSON response
+- [x] Each yielded value is sent to client as it becomes available
+- [x] Client receives data incrementally without waiting for full response
+- [x] Streaming works with the /info endpoint reporting stream status
+- [x] Non-streaming APIs continue to work normally
+- [x] API validates that predict/encode_response are generators when stream=True
+
+## Task 5: Device/Accelerator Detection (COMPLETE)
+
+### Acceptance Criteria
+- [x] detect_accelerator("auto") returns "cuda" if CUDA is available, "mps" if MPS is available, else "cpu"
+- [x] detect_accelerator("cpu"/"cuda"/"mps") returns the specified accelerator
+- [x] detect_accelerator raises ValueError for invalid accelerator names
+- [x] detect_device_count returns number of CUDA devices when accelerator is "cuda"
+- [x] detect_device_count returns 1 for "cpu" and "mps" accelerators
+- [x] CUDA detection works via nvidia-smi command (no torch required)
+- [x] CUDA_VISIBLE_DEVICES environment variable is respected when counting devices
+- [x] MPS detection checks for Apple Silicon and torch.backends.mps availability
+- [x] Server uses device detection module for resolving accelerator and devices
+- [x] get_device_identifiers returns proper device strings like "cuda:0", "mps:0", "cpu"

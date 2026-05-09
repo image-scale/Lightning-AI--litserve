@@ -19,6 +19,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from aiserver.api import InferenceAPI
+from aiserver.devices import detect_accelerator, detect_device_count, get_device_identifiers
 
 logger = logging.getLogger(__name__)
 
@@ -328,8 +329,8 @@ class InferenceServer:
         self.api = api
         api.pre_setup()
 
-        self._accelerator = self._resolve_accelerator(accelerator)
-        self._devices = self._resolve_devices(devices)
+        self._accelerator = detect_accelerator(accelerator)
+        self._devices = detect_device_count(self._accelerator) if devices == "auto" else devices
         self.workers_per_device = workers_per_device
         self.timeout = timeout if timeout is not False else -1
         self.model_metadata = model_metadata
@@ -347,43 +348,6 @@ class InferenceServer:
         self._response_task: Optional[asyncio.Task] = None
 
         self._register_endpoints()
-
-    def _resolve_accelerator(self, accelerator: str) -> str:
-        """Resolve accelerator type."""
-        if accelerator == "auto":
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    return "cuda"
-                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                    return "mps"
-            except ImportError:
-                pass
-            return "cpu"
-        return accelerator
-
-    def _resolve_devices(self, devices) -> int:
-        """Resolve number of devices."""
-        if devices == "auto":
-            if self._accelerator == "cuda":
-                try:
-                    import torch
-                    return torch.cuda.device_count() or 1
-                except ImportError:
-                    return 1
-            return 1
-        return devices
-
-    def _get_device_identifiers(self) -> list[str]:
-        """Get list of device identifiers for workers."""
-        if self._accelerator == "cpu":
-            return ["cpu"] * self.workers_per_device
-        else:
-            devices = []
-            for i in range(self._devices):
-                for _ in range(self.workers_per_device):
-                    devices.append(f"{self._accelerator}:{i}")
-            return devices
 
     @asynccontextmanager
     async def _lifespan(self, app: FastAPI):
@@ -504,7 +468,7 @@ class InferenceServer:
         self._request_queue = self._manager.Queue()
         self._response_queue = self._manager.Queue()
 
-        devices = self._get_device_identifiers()
+        devices = get_device_identifiers(self._accelerator, self._devices, self.workers_per_device)
         ctx = mp.get_context("spawn")
 
         for worker_id, device in enumerate(devices):

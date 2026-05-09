@@ -100,15 +100,13 @@ class TestServerAccelerator:
             assert server._accelerator == "cpu"
 
     def test_device_identifiers_cpu(self):
-        api = SimpleAPI()
-        server = InferenceServer(api, accelerator="cpu", workers_per_device=2)
-        devices = server._get_device_identifiers()
+        from aiserver.devices import get_device_identifiers
+        devices = get_device_identifiers("cpu", 1, 2)
         assert devices == ["cpu", "cpu"]
 
     def test_device_identifiers_cuda(self):
-        api = SimpleAPI()
-        server = InferenceServer(api, accelerator="cuda", devices=2, workers_per_device=1)
-        devices = server._get_device_identifiers()
+        from aiserver.devices import get_device_identifiers
+        devices = get_device_identifiers("cuda", 2, 1)
         assert devices == ["cuda:0", "cuda:1"]
 
 

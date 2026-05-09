@@ -20,3 +20,17 @@
 **Commit**: Add request batching support to the inference server
 **Acceptance**: 8/8 criteria met
 **Verification**: tests FAIL on previous state (KeyError: max_batch_size), PASS on current state
+
+## Round 4
+**Task**: Task 4 — Streaming Response Support
+**Files created**: tests/test_streaming.py (updated server.py)
+**Commit**: Add streaming response support for incremental output
+**Acceptance**: 8/8 criteria met
+**Verification**: tests FAIL on previous state (KeyError: 'stream'), PASS on current state
+
+## Round 5
+**Task**: Task 5 — Device/Accelerator Detection
+**Files created**: src/aiserver/devices.py, tests/test_devices.py (updated server.py)
+**Commit**: Add device/accelerator detection module
+**Acceptance**: 10/10 criteria met
+**Verification**: tests FAIL on previous state (ImportError: aiserver.devices), PASS on current state
